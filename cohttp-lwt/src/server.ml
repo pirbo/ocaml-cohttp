@@ -123,7 +123,7 @@ module Make (IO : S.IO) = struct
         Log.info (fun m -> m "IO error while writing body: %a" IO.pp_error e);
         Body.drain_body body
 
-  let rec handle_client ic oc conn callback =
+  let rec handle_client ic oc conn spec =
     Request.read ic >>= function
     | `Eof -> Lwt.return_unit
     | `Invalid data ->
@@ -131,23 +131,23 @@ module Make (IO : S.IO) = struct
         Lwt.return_unit
     | `Ok req -> (
         let body = read_body ic req in
-        handle_request callback conn req body >>= function
+        handle_request spec.callback conn req body >>= function
         | `Response (res, body) ->
             let keep_alive =
               Http.Request.is_keep_alive req && Http.Response.is_keep_alive res
             in
             handle_response ~keep_alive oc res body (fun oc ->
-                handle_client ic oc conn callback)
+                handle_client ic oc conn spec)
         | `Expert (res, io_handler) ->
             Response.write_header res oc >>= fun () ->
-            io_handler ic oc >>= fun () -> handle_client ic oc conn callback)
+            io_handler ic oc >>= fun () -> handle_client ic oc conn spec)
 
   let callback spec io_id ic oc =
     let conn_id = Connection.create () in
     let conn_closed () = spec.conn_closed (io_id, conn_id) in
     Lwt.finalize
       (fun () ->
-        IO.catch (fun () -> handle_client ic oc (io_id, conn_id) spec.callback)
+        IO.catch (fun () -> handle_client ic oc (io_id, conn_id) spec)
         >>= function
         | Ok () -> Lwt.return_unit
         | Error e ->
