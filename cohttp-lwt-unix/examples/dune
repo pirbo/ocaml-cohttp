@@ -1,5 +1,10 @@
 (executables
- (names client_lwt client_lwt_timeout docker_lwt server_lwt)
+ (names
+  client_lwt
+  client_lwt_timeout
+  docker_lwt
+  server_lwt
+  server_sent_event_lwt)
  (libraries cohttp-lwt-unix))
 
 (alias
